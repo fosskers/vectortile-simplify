@@ -10,6 +10,7 @@ import geotrellis.spark.tiling._
 import geotrellis.spark.util.SparkUtils
 import geotrellis.vector.{Feature, MultiPolygon, Polygon}
 import geotrellis.vectortile._
+import geotrellis.vectortile.spark._
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
@@ -31,16 +32,18 @@ object IO extends App {
     val reader = FileLayerReader(store)
     val writer = FileLayerWriter(store)
 
+    /*
     val rawcatalog: SpatialKey => String = SaveToHadoop.spatialKeyToPath(
       LayerId("vancouver-lite", 15),
       "/home/colin/rawtiles/{name}/{z}/{x}/{y}.mvt"
     )
+     */
 
     val layout: LayoutDefinition =
       ZoomedLayoutScheme.layoutForZoom(15, WebMercator.worldExtent, 512)
 
-    val manyTiles: RDD[(SpatialKey, VectorTile)] with Metadata[TileLayerMetadata[SpatialKey]] =
-      reader.read(LayerId("vancouver", 15))
+    val manyTiles: RDD[(SpatialKey, VectorTile)] with Metadata[LayerMetadata[SpatialKey]] =
+      reader.read(LayerId("north-van", 15))
 
     // TODO: Shouldn't be necessary, but it seems to be.
     val tiles = manyTiles.distinct
@@ -82,15 +85,13 @@ object IO extends App {
       }).getOrElse(VectorTile(Map.empty, v.tileExtent))
     })
 
-    println("Writing raw tiles...")
-
     /* Write uncompressed VTs */
-    lighter.saveToHadoop(rawcatalog)({ (k,v) => v.toBytes })
+//    lighter.saveToHadoop(rawcatalog)({ (k,v) => v.toBytes })
 
     println("Writing compressed tiles...")
 
     /* Write a GeoTrellis layer of VTs */
-    writer.write(LayerId("vancouver-lite", 15), ContextRDD(lighter, manyTiles.metadata), ZCurveKeyIndexMethod)
+    writer.write(LayerId("north-van-lite", 15), ContextRDD(lighter, manyTiles.metadata), ZCurveKeyIndexMethod)
 
     /* We're done */
     sc.stop()
